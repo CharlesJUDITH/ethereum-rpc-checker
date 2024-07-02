@@ -14,4 +14,4 @@ FROM alpine
 
 COPY --from=builder /ethereum-rpc-checker /ethereum-rpc-checker
 
-# ENTRYPOINT ["/ethereum-rpc-checker"]
+ENTRYPOINT ["/ethereum-rpc-checker"]
