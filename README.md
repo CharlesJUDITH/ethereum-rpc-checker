@@ -65,8 +65,10 @@ To run the application, ensure you have the config.yaml file in the same directo
 
 ```yaml
 endpoints:
-  - "http://localhost:8545"
-  - "http://another-node:8545"
+  - name: "localhost"
+    url: "http://localhost:8545"
+  - name: "another-host"
+    url: "http://another-node:8545"
 interval: 5
 method: "eth_blockNumber"
 prometheus:
@@ -82,8 +84,10 @@ The application can be configured using a config.yaml file. Below is an example 
 
 ```
 endpoints:
-  - "http://localhost:8545"
-  - "http://another-node:8545"
+  - name: "localhost"
+    url: "http://localhost:8545"
+  - name: "another-host"
+    url: "http://another-node:8545"
 interval: 5
 method: "eth_blockNumber"
 prometheus:
