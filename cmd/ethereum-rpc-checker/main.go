@@ -16,12 +16,17 @@ import (
 )
 
 type Config struct {
-	Endpoints  []string `yaml:"endpoints"`
-	Interval   int      `yaml:"interval"`
-	Method     string   `yaml:"method"`
+	Endpoints  []Endpoint `yaml:"endpoints"`
+	Interval   int        `yaml:"interval"`
+	Method     string     `yaml:"method"`
 	Prometheus struct {
 		Address string `yaml:"address"`
 	} `yaml:"prometheus"`
+}
+
+type Endpoint struct {
+	Name string `yaml:"name"`
+	URL  string `yaml:"url"`
 }
 
 type RPCClient interface {
@@ -105,12 +110,12 @@ func dialRPC(ctx context.Context, endpoint string) (RPCClient, error) {
 	return &EthRPCClient{client}, nil
 }
 
-func checkBlockchainRPC(endpoint, method string) {
-	log.Printf("Checking blockchain RPC endpoint: %s with method: %s\n", endpoint, method)
-	client, err := rpcDial(context.Background(), endpoint)
+func checkBlockchainRPC(endpoint Endpoint, method string) {
+	log.Printf("Checking blockchain RPC endpoint: %s with method: %s\n", endpoint.URL, method)
+	client, err := rpcDial(context.Background(), endpoint.URL)
 	if err != nil {
 		log.Printf("Error connecting to blockchain RPC endpoint: %v", err)
-		rpcHealthy.WithLabelValues(endpoint).Set(0)
+		rpcHealthy.WithLabelValues(endpoint.Name).Set(0)
 		return
 	}
 	defer client.Close()
@@ -119,22 +124,22 @@ func checkBlockchainRPC(endpoint, method string) {
 	err = client.CallContext(context.Background(), &result, method)
 	if err != nil {
 		log.Printf("Error calling %s: %v", method, err)
-		rpcHealthy.WithLabelValues(endpoint).Set(0)
+		rpcHealthy.WithLabelValues(endpoint.Name).Set(0)
 		return
 	}
 
-	log.Printf("Raw result from %s: %s\n", endpoint, result)
+	log.Printf("Raw result from %s: %s\n", endpoint.URL, result)
 
 	blockNum, err := hexToInt(result)
 	if err != nil {
-		log.Printf("Error converting hex to int from %s: %v", endpoint, err)
-		rpcHealthy.WithLabelValues(endpoint).Set(0)
+		log.Printf("Error converting hex to int from %s: %v", endpoint.URL, err)
+		rpcHealthy.WithLabelValues(endpoint.Name).Set(0)
 		return
 	}
 
-	rpcHealthy.WithLabelValues(endpoint).Set(1)
-	blockNumber.WithLabelValues(endpoint).Set(float64(blockNum))
-	log.Printf("Block Number from %s: %d\n", endpoint, blockNum)
+	rpcHealthy.WithLabelValues(endpoint.Name).Set(1)
+	blockNumber.WithLabelValues(endpoint.Name).Set(float64(blockNum))
+	log.Printf("Block Number from %s: %d\n", endpoint.URL, blockNum)
 }
 
 func hexToInt(hexStr string) (int64, error) {
