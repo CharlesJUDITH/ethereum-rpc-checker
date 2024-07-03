@@ -94,6 +94,8 @@ prometheus:
   address: ":9090"
 ```
 
+**name**: Name of of the endpoint
+
 **endpoints**: List of RPC endpoints to monitor.
 
 **interval**: Time interval (in minutes) between checks.
