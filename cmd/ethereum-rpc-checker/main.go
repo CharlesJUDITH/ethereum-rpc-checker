@@ -2,9 +2,12 @@ package main
 
 import (
 	"context"
+	"flag"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -64,14 +67,20 @@ func init() {
 }
 
 func main() {
+	helpFlag := flag.Bool("help", false, "Display help information")
+	configFile := flag.String("config", "config.yaml", "Path to configuration file")
+	flag.Parse()
+
+	if *helpFlag {
+		printHelp()
+		os.Exit(0)
+	}
+
 	log.Println("🚀 Starting Blockchain RPC Checker...")
-
-	config := loadConfigFile("config.yaml")
+	config := loadConfigFile(*configFile)
 	log.Printf("📁 Loaded configuration: %+v\n", config)
-
 	ticker := time.NewTicker(time.Duration(config.Interval) * time.Minute)
 	defer ticker.Stop()
-
 	go func() {
 		for range ticker.C {
 			for _, endpoint := range config.Endpoints {
@@ -79,10 +88,30 @@ func main() {
 			}
 		}
 	}()
-
 	http.Handle("/metrics", promhttp.Handler())
 	log.Printf("📊 Starting Prometheus HTTP server on %s\n", config.Prometheus.Address)
 	log.Fatal(http.ListenAndServe(config.Prometheus.Address, nil))
+}
+
+func printHelp() {
+	fmt.Println("Blockchain RPC Checker")
+	fmt.Println("Usage: ethereum-rpc-checker [options]")
+	fmt.Println("\nOptions:")
+	fmt.Println("  -help\t\tDisplay this help message")
+	fmt.Println("  -config string\tPath to configuration file (default \"config.yaml\")")
+	fmt.Println("\nDescription:")
+	fmt.Println("  This tool checks the health of blockchain RPC endpoints and exposes metrics for Prometheus.")
+	fmt.Println("  It reads configuration from a YAML file and periodically checks the specified endpoints.")
+	fmt.Println("\nConfiguration File Format:")
+	fmt.Println("  endpoints:")
+	fmt.Println("    - name: endpoint1")
+	fmt.Println("      url: http://example1.com")
+	fmt.Println("    - name: endpoint2")
+	fmt.Println("      url: http://example2.com")
+	fmt.Println("  interval: 5  # Check interval in minutes")
+	fmt.Println("  method: eth_blockNumber  # RPC method to call")
+	fmt.Println("  prometheus:")
+	fmt.Println("    address: :8080  # Address to expose Prometheus metrics")
 }
 
 func loadConfigFile(filename string) Config {
