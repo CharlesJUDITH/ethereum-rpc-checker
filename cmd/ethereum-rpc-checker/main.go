@@ -64,10 +64,10 @@ func init() {
 }
 
 func main() {
-	log.Println("Starting Blockchain RPC Checker...")
+	log.Println("🚀 Starting Blockchain RPC Checker...")
 
 	config := loadConfigFile("config.yaml")
-	log.Printf("Loaded configuration: %+v\n", config)
+	log.Printf("📁 Loaded configuration: %+v\n", config)
 
 	ticker := time.NewTicker(time.Duration(config.Interval) * time.Minute)
 	defer ticker.Stop()
@@ -81,14 +81,14 @@ func main() {
 	}()
 
 	http.Handle("/metrics", promhttp.Handler())
-	log.Printf("Starting Prometheus HTTP server on %s\n", config.Prometheus.Address)
+	log.Printf("📊 Starting Prometheus HTTP server on %s\n", config.Prometheus.Address)
 	log.Fatal(http.ListenAndServe(config.Prometheus.Address, nil))
 }
 
 func loadConfigFile(filename string) Config {
 	data, err := ioutil.ReadFile(filename)
 	if err != nil {
-		log.Fatalf("Error reading config file: %v", err)
+		log.Fatalf("❌ Error reading config file: %v", err)
 	}
 	return loadConfig(data)
 }
@@ -97,13 +97,22 @@ func loadConfig(data []byte) Config {
 	var config Config
 	err := yaml.Unmarshal(data, &config)
 	if err != nil {
-		log.Fatalf("Error parsing config file: %v", err)
+		log.Fatalf("❌ Error parsing config file: %v", err)
 	}
 	return config
 }
 
 func dialRPC(ctx context.Context, endpoint string) (RPCClient, error) {
-	client, err := rpc.DialContext(ctx, endpoint)
+	httpClient := &http.Client{
+		Transport: &http.Transport{
+			MaxIdleConnsPerHost: 100,
+			IdleConnTimeout:     90 * time.Second,
+			TLSHandshakeTimeout: 10 * time.Second,
+		},
+		Timeout: 30 * time.Second, // Set a timeout for the entire request
+	}
+
+	client, err := rpc.DialHTTPWithClient(endpoint, httpClient)
 	if err != nil {
 		return nil, err
 	}
@@ -111,35 +120,38 @@ func dialRPC(ctx context.Context, endpoint string) (RPCClient, error) {
 }
 
 func checkBlockchainRPC(endpoint Endpoint, method string) {
-	log.Printf("Checking blockchain RPC endpoint: %s with method: %s\n", endpoint.URL, method)
-	client, err := rpcDial(context.Background(), endpoint.URL)
+	log.Printf("🔍 Checking blockchain RPC endpoint: %s with method: %s\n", endpoint.URL, method)
+	
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	client, err := rpcDial(ctx, endpoint.URL)
 	if err != nil {
-		log.Printf("Error connecting to blockchain RPC endpoint: %v", err)
+		log.Printf("❌ Error connecting to blockchain RPC endpoint: %v", err)
 		rpcHealthy.WithLabelValues(endpoint.Name).Set(0)
 		return
 	}
 	defer client.Close()
 
 	var result string
-	err = client.CallContext(context.Background(), &result, method)
+	err = client.CallContext(ctx, &result, method)
 	if err != nil {
-		log.Printf("Error calling %s: %v", method, err)
+		log.Printf("❌ Error calling %s: %v", method, err)
 		rpcHealthy.WithLabelValues(endpoint.Name).Set(0)
 		return
 	}
 
-	log.Printf("Raw result from %s: %s\n", endpoint.URL, result)
-
+	log.Printf("📡 Raw result from %s: %s\n", endpoint.URL, result)
 	blockNum, err := hexToInt(result)
 	if err != nil {
-		log.Printf("Error converting hex to int from %s: %v", endpoint.URL, err)
+		log.Printf("❌ Error converting hex to int from %s: %v", endpoint.URL, err)
 		rpcHealthy.WithLabelValues(endpoint.Name).Set(0)
 		return
 	}
 
 	rpcHealthy.WithLabelValues(endpoint.Name).Set(1)
 	blockNumber.WithLabelValues(endpoint.Name).Set(float64(blockNum))
-	log.Printf("Block Number from %s: %d\n", endpoint.URL, blockNum)
+	log.Printf("✅ Block Number from %s: %d\n", endpoint.URL, blockNum)
 }
 
 func hexToInt(hexStr string) (int64, error) {
